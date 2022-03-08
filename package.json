@@ -1,0 +1,24 @@
+{
+  "name": "mini-vite-monorepo",
+  "version": "1.0.0",
+  "description": "learn vite",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Autumn",
+  "license": "ISC",
+  "engines": {
+    "node": ">=12.2.0"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^5.14.0",
+    "@typescript-eslint/parser": "^5.14.0",
+    "eslint": "^8.10.0",
+    "eslint-define-config": "^1.2.5",
+    "eslint-plugin-node": "^11.1.0",
+    "prettier": "^2.5.1",
+    "rimraf": "^3.0.2",
+    "simple-git-hooks": "^2.7.0",
+    "typescript": "^4.6.2"
+  }
+}

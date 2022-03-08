@@ -1,0 +1,14 @@
+{
+  "0 debug pnpm:scope": {
+    "selected": 1
+  },
+  "1 error pnpm": {
+    "code": "ERR_PNPM_MISSING_ARGS",
+    "err": {
+      "name": "pnpm",
+      "message": "Missing the template package name.\nThe correct usage is `pnpm create <name>` with <name> substituted for a package name.",
+      "code": "ERR_PNPM_MISSING_ARGS",
+      "stack": "pnpm: Missing the template package name.\nThe correct usage is `pnpm create <name>` with <name> substituted for a package name.\n    at Object.handler [as create] (/snapshot/dist/pnpm.cjs)\n    at /snapshot/dist/pnpm.cjs\n    at async run (/snapshot/dist/pnpm.cjs)\n    at async runPnpm (/snapshot/dist/pnpm.cjs)\n    at async /snapshot/dist/pnpm.cjs"
+    }
+  }
+}

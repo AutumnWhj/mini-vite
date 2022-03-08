@@ -1,0 +1,31 @@
+{
+  "name": "mini-vite",
+  "version": "1.0.0",
+  "description": "learn vite",
+  "bin": {
+    "vite": "bin/vite.js"
+  },
+  "main": "dist/node/index.js",
+  "types": "dist/node/index.d.ts",
+  "engines": {
+    "node": ">=12.2.0"
+  },
+  "scripts": {
+    "dev": "rimraf dist && rollup -c -w",
+    "lint": "eslint --ext .ts src/**",
+    "format": "prettier --write --parser typescript \"src/**/*.ts\""
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "rollup": "^2.70.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^21.0.1",
+    "@rollup/plugin-json": "^4.1.0",
+    "@rollup/plugin-node-resolve": "13.1.3",
+    "@rollup/plugin-typescript": "^8.3.0",
+    "source-map-support": "^0.5.21",
+    "tslib": "^2.3.1"
+  }
+}
