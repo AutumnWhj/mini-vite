@@ -3,6 +3,7 @@ const { defineConfig } = require('eslint-define-config')
 
 module.exports = defineConfig({
   root: true,
+  // 拓展eslint规则
   extends: [
     'eslint:recommended',
     'plugin:node/recommended',
@@ -13,6 +14,7 @@ module.exports = defineConfig({
     sourceType: 'module',
     ecmaVersion: 2021
   },
+  // 自定义规则
   rules: {
     'no-debugger': ['error'],
     'no-empty': ['warn', { allowEmptyCatch: true }],
@@ -49,15 +51,15 @@ module.exports = defineConfig({
     ],
     'node/no-restricted-require': [
       'error',
-      Object.keys(require('./packages/mini-vite/package.json').devDependencies).map(
-        (d) => ({
-          name: d,
-          message:
-            `devDependencies can only be imported using ESM syntax so ` +
-            `that they are included in the rollup bundle. If you are trying to ` +
-            `lazy load a dependency, use (await import('dependency')).default instead.`
-        })
-      )
+      Object.keys(
+        require('./packages/mini-vite/package.json').devDependencies
+      ).map((d) => ({
+        name: d,
+        message:
+          `devDependencies can only be imported using ESM syntax so ` +
+          `that they are included in the rollup bundle. If you are trying to ` +
+          `lazy load a dependency, use (await import('dependency')).default instead.`
+      }))
     ],
     'node/no-extraneous-import': [
       'error',
@@ -94,6 +96,7 @@ module.exports = defineConfig({
       { prefer: 'type-imports' }
     ]
   },
+  // 更细粒度地控制eslint规则，如某文件下，新增某规则
   overrides: [
     {
       files: ['packages/mini-vite/src/node/**'],
