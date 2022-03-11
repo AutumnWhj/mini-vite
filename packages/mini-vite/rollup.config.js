@@ -46,7 +46,16 @@ export default (commandLineArgs) => {
           target: 'es2019',
           include: ['src/**/*.ts', 'types/**'],
           exclude: ['src/**/__tests__/**'],
-          esModuleInterop: true
+          esModuleInterop: true,
+          ...(isProduction
+            ? {
+                declaration: false,
+                sourceMap: false
+              }
+            : {
+                declaration: true,
+                declarationDir: path.resolve(__dirname, 'dist/node')
+              })
         }),
         commonjs({
           extensions: ['.js']
