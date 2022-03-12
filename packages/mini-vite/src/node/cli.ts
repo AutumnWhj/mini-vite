@@ -1,6 +1,9 @@
 import { cac } from 'cac'
+import colors from 'picocolors'
+
 import type { ServerOptions } from './server'
 import type { LogLevel } from './logger'
+import { createLogger } from './logger'
 // global options
 interface GlobalCLIOptions {
   '--'?: string[]
@@ -47,6 +50,12 @@ cli
   .action(async (root: string, options: ServerOptions & GlobalCLIOptions) => {
     console.log('root: ', root)
     console.log('options: ', options)
+    const e = new Error('121')
+    createLogger(options.logLevel).warn(
+      colors.red(`error when starting dev server:\n${e.stack}`),
+      { timestamp: true }
+    )
+    process.exit(1)
   })
 
 cli.help()

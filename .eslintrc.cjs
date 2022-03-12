@@ -45,7 +45,7 @@ module.exports = defineConfig({
       'error',
       {
         // for try-catching yarn pnp
-        allowModules: ['pnpapi', 'vite'],
+        allowModules: ['pnpapi', 'mini-vite'],
         tryExtensions: ['.ts', '.js', '.jsx', '.tsx', '.d.ts']
       }
     ],
@@ -64,13 +64,13 @@ module.exports = defineConfig({
     'node/no-extraneous-import': [
       'error',
       {
-        allowModules: ['vite', 'less', 'sass']
+        allowModules: ['mini-vite', 'less', 'sass']
       }
     ],
     'node/no-extraneous-require': [
       'error',
       {
-        allowModules: ['vite']
+        allowModules: ['mini-vite']
       }
     ],
     'node/no-deprecated-api': 'off',
