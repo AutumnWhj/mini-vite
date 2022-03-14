@@ -20,7 +20,28 @@ interface GlobalCLIOptions {
   m?: string
   mode?: string
 }
-
+/**
+ * removing global flags before passing as command specific sub-configs
+ */
+function cleanOptions<Options extends GlobalCLIOptions>(
+  options: Options
+): Omit<Options, keyof GlobalCLIOptions> {
+  const ret = { ...options }
+  delete ret['--']
+  delete ret.c
+  delete ret.config
+  delete ret.base
+  delete ret.l
+  delete ret.logLevel
+  delete ret.clearScreen
+  delete ret.d
+  delete ret.debug
+  delete ret.f
+  delete ret.filter
+  delete ret.m
+  delete ret.mode
+  return ret
+}
 const cli = cac('vite')
 
 cli
@@ -51,14 +72,32 @@ cli
     console.log('root: ', root)
     console.log('options: ', options)
     const e = new Error('121')
-    createLogger(options.logLevel).warn(
-      colors.red(`error when starting dev server:\n${e.stack}`),
-      { timestamp: true }
-    )
-    process.exit(1)
+    const { createServer } = await import('./server')
+    try {
+      // 获取server实例
+      const server = await createServer({
+        root,
+        configFile: options.config,
+        logLevel: options.logLevel,
+        server: cleanOptions(options)
+      })
+
+      // if (!server.httpServer) {
+      //   throw new Error('HTTP server not available')
+      // }
+      // await server.listen()
+
+      // await server.pri
+    } catch (error) {
+      createLogger(options.logLevel).error(
+        colors.red(`error when starting dev server:\n${e.stack}`),
+        { error: e }
+      )
+      process.exit(1)
+    }
   })
 
 cli.help()
-cli.version(require('../../package.json').version)
+// cli.version(require('../../package.json').version)
 
 cli.parse()

@@ -11,6 +11,7 @@ if (!__dirname.includes('node_modules')) {
 
 // 命令行cli 支持-d --debug="" --filter 来开启debug模式
 const debugIndex = process.argv.findIndex((arg) => /^(?:-d|--debug)$/.test(arg))
+console.log('debugIndex: ', debugIndex)
 const filterIndex = process.argv.findIndex((arg) =>
   /^(?:-f|--filter)$/.test(arg)
 )
