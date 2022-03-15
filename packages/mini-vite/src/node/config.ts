@@ -51,15 +51,15 @@ export async function resolveConfig(
   command: 'build' | 'serve',
   defaultMode = 'development'
 ): Promise<ResolvedConfig> {
-  console.log('resolveConfig----  start')
-  const config = inlineConfig
+  let config = inlineConfig
+  let configFileDependencies: string[] = []
+
   const configEnv = {
     mode: defaultMode,
     command
   }
 
-  const { configFile } = config
-  console.log('config: ', config)
+  let { configFile } = config
 
   if (configFile !== false) {
     const loadResult = await loadConfigFromFile(
@@ -68,7 +68,12 @@ export async function resolveConfig(
       config.root,
       config.logLevel
     )
-    console.log('loadResult: ', loadResult)
+    console.log('loadResult', loadResult)
+    if (loadResult) {
+      config = mergeConfig(loadResult.config, config)
+      configFile = loadResult.path
+      configFileDependencies = loadResult.dependencies
+    }
   }
   return {
     configFile: undefined,
@@ -101,7 +106,6 @@ export async function loadConfigFromFile(
     }
   } catch (e) {}
 
-  console.log('configFile: ', configFile)
   if (configFile) {
     // explicit config path is always resolved from cwd
     resolvedPath = path.resolve(configFile)
@@ -110,8 +114,38 @@ export async function loadConfigFromFile(
     if (configFile.endsWith('.mjs')) {
       isESM = true
     }
+  } else {
+    // implicit config file loaded from inline root (if present)
+    // otherwise from cwd
+    const jsconfigFile = path.resolve(configRoot, 'vite.config.js')
+    if (fs.existsSync(jsconfigFile)) {
+      resolvedPath = jsconfigFile
+    }
+
+    if (!resolvedPath) {
+      const mjsconfigFile = path.resolve(configRoot, 'vite.config.mjs')
+      if (fs.existsSync(mjsconfigFile)) {
+        resolvedPath = mjsconfigFile
+        isESM = true
+      }
+    }
+
+    if (!resolvedPath) {
+      const tsconfigFile = path.resolve(configRoot, 'vite.config.ts')
+      if (fs.existsSync(tsconfigFile)) {
+        resolvedPath = tsconfigFile
+        isTS = true
+      }
+    }
+
+    if (!resolvedPath) {
+      const cjsConfigFile = path.resolve(configRoot, 'vite.config.cjs')
+      if (fs.existsSync(cjsConfigFile)) {
+        resolvedPath = cjsConfigFile
+        isESM = false
+      }
+    }
   }
-  console.log('resolvedPath: ', resolvedPath)
   if (!resolvedPath) {
     debug('no config file found.')
     return null
@@ -122,19 +156,24 @@ export async function loadConfigFromFile(
 
     if (isESM) {
       const fileUrl = require('url').pathToFileURL(resolvedPath)
-      console.log('fileUrl: ', fileUrl)
       const bundled = await bundleConfigFile(resolvedPath, true)
-      console.log('bundled----: ', bundled)
       dependencies = bundled.dependencies
       if (isTS) {
         fs.writeFileSync(resolvedPath + '.js', bundled.code)
         userConfig = (await dynamicImport(`${fileUrl}.js?t=${Date.now()}`))
           .default
-        // fs.unlinkSync(resolvedPath + '.js')
+        fs.unlinkSync(resolvedPath + '.js')
       } else {
         userConfig = (await dynamicImport(`${fileUrl}?t=${Date.now()}`)).default
         debug(`native esm config loaded in ${getTime()}`, fileUrl)
       }
+    }
+    if (!userConfig) {
+      // Bundle config file and transpile it to cjs using esbuild.
+      const bundled = await bundleConfigFile(resolvedPath)
+      dependencies = bundled.dependencies
+      userConfig = await loadConfigFromBundledFile(resolvedPath, bundled.code)
+      debug(`bundled config file loaded in ${getTime()}`)
     }
     const config = await (typeof userConfig === 'function'
       ? userConfig(configEnv)
@@ -212,4 +251,50 @@ async function bundleConfigFile(
     code: text,
     dependencies: result.metafile ? Object.keys(result.metafile.inputs) : []
   }
+}
+interface NodeModuleWithCompile extends NodeModule {
+  _compile(code: string, filename: string): any
+}
+async function loadConfigFromBundledFile(
+  fileName: string,
+  buildedCode: string
+): Promise<UserConfig> {
+  const extension = path.extname(fileName)
+  // Instruct require on how to handle certain file extensions.
+  // 指示require怎么处理这样的后缀文件
+  // defaultLoader node require对该后缀文件默认的处理方法
+  const defaultLoader = require.extensions[extension]!
+  // 这里自定义处理方法似乎毫无用处，用做后续的拓展？
+  require.extensions[extension] = (module: NodeModule, filename: string) => {
+    if (filename === fileName) {
+      ;(module as NodeModuleWithCompile)._compile(buildedCode, filename)
+    } else {
+      defaultLoader(module, filename)
+    }
+  }
+  // 清楚缓存cache
+  delete require.cache[require.resolve(fileName)]
+  // 引入模块
+  const raw = require(fileName)
+  const config = raw.__esModule ? raw.default : raw
+  // 重置为默认加载方法
+  require.extensions[extension] = defaultLoader
+  return config
+}
+
+export function mergeConfig(
+  defaults: Record<string, any>,
+  overrides: Record<string, any>,
+  isRoot = true
+): Record<string, any> {
+  return mergeConfigRecursively(defaults, overrides, isRoot ? '' : '.')
+}
+
+function mergeConfigRecursively(
+  defaults: Record<string, any>,
+  overrides: Record<string, any>,
+  rootPath: string
+) {
+  const merged: Record<string, any> = { ...defaults }
+  return merged
 }
