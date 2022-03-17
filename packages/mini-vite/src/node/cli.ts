@@ -69,9 +69,6 @@ cli
     `[boolean] force the optimizer to ignore the cache and re-bundle`
   )
   .action(async (root: string, options: ServerOptions & GlobalCLIOptions) => {
-    console.log('root: ', root)
-    console.log('options: ', options)
-    const e = new Error('121')
     const { createServer } = await import('./server')
     try {
       // 获取server实例
@@ -82,13 +79,20 @@ cli
         server: cleanOptions(options)
       })
 
-      // if (!server.httpServer) {
-      //   throw new Error('HTTP server not available')
-      // }
-      // await server.listen()
+      if (!server.httpServer) {
+        throw new Error('HTTP server not available')
+      }
+      await server.listen()
+      const info = server.config.logger.info
 
-      // await server.pri
-    } catch (error) {
+      info(
+        colors.cyan(`\n  vite v${require('mini-vite/package.json').version}`) +
+          colors.green(` dev server running at:\n`),
+        {
+          clear: !server.config.logger.hasWarned
+        }
+      )
+    } catch (e) {
       createLogger(options.logLevel).error(
         colors.red(`error when starting dev server:\n${e.stack}`),
         { error: e }
@@ -98,6 +102,6 @@ cli
   })
 
 cli.help()
-// cli.version(require('../../package.json').version)
+cli.version(require('mini-vite/package.json').version)
 
 cli.parse()

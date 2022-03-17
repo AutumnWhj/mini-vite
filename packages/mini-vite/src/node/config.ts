@@ -1,7 +1,8 @@
 import fs from 'fs'
 import path from 'path'
-import type { LogLevel } from './logger'
-import type { ServerOptions } from './server'
+import type { LogLevel, Logger } from './logger'
+import type { ServerOptions, ResolvedServerOptions } from './server'
+import { resolveServerOptions } from './server'
 import { performance } from 'perf_hooks'
 import {
   createDebugger,
@@ -34,6 +35,11 @@ export interface UserConfig {
    */
   server?: ServerOptions
   logLevel?: LogLevel
+  customLogger?: Logger
+  /**
+   * Default: true
+   */
+  clearScreen?: boolean
 }
 
 export interface InlineConfig extends UserConfig {
@@ -44,6 +50,9 @@ export interface InlineConfig extends UserConfig {
 export type ResolvedConfig = {
   configFile: string | undefined
   inlineConfig: InlineConfig
+  configFileDependencies: string[]
+  server: ResolvedServerOptions
+  logger: Logger
 }
 
 export async function resolveConfig(
@@ -68,16 +77,30 @@ export async function resolveConfig(
       config.root,
       config.logLevel
     )
-    console.log('loadResult', loadResult)
+
     if (loadResult) {
       config = mergeConfig(loadResult.config, config)
       configFile = loadResult.path
       configFileDependencies = loadResult.dependencies
     }
   }
+  // Define logger
+  const logger = createLogger(config.logLevel, {
+    allowClearScreen: config.clearScreen,
+    customLogger: config.customLogger
+  })
+  // resolve root
+  const resolvedRoot = normalizePath(
+    config.root ? path.resolve(config.root) : process.cwd()
+  )
+  const server = resolveServerOptions(resolvedRoot, config.server)
+
   return {
     configFile: undefined,
-    inlineConfig
+    inlineConfig,
+    server,
+    configFileDependencies,
+    logger
   }
 }
 

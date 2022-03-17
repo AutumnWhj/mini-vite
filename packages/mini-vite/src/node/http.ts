@@ -1,5 +1,10 @@
-import type { OutgoingHttpHeaders as HttpServerHeaders } from 'http'
+import type {
+  OutgoingHttpHeaders as HttpServerHeaders,
+  Server as HttpServer
+} from 'http'
 import type { ServerOptions as HttpsServerOptions } from 'https'
+import type { Connect } from 'types/connect'
+import type { Logger } from './logger'
 export interface CommonServerOptions {
   /**
    * Specify server port. Note if the port is already being used, Vite will
@@ -47,7 +52,7 @@ export interface CommonServerOptions {
    * }
    * ```
    */
-  // proxy?: Record<string, string | ProxyOptions>
+  proxy?: Record<string, string>
   /**
    * Configure CORS for the dev server.
    * Uses https://github.com/expressjs/cors.
@@ -59,4 +64,47 @@ export interface CommonServerOptions {
    * Specify server response headers.
    */
   headers?: HttpServerHeaders
+}
+
+export async function resolveHttpServer(
+  { proxy }: CommonServerOptions,
+  app: Connect.Server,
+  httpsOptions?: HttpsServerOptions
+): Promise<HttpServer> {
+  return require('http').createServer(app)
+}
+export async function httpServerStart(
+  httpServer: HttpServer,
+  serverOptions: {
+    port: number
+    strictPort: boolean | undefined
+    host: string | undefined
+    logger: Logger
+  }
+): Promise<number> {
+  return new Promise((resolve, reject) => {
+    let { port, strictPort, host, logger } = serverOptions
+
+    const onError = (e: Error & { code?: string }) => {
+      if (e.code === 'EADDRINUSE') {
+        if (strictPort) {
+          httpServer.removeListener('error', onError)
+          reject(new Error(`Port ${port} is already in use`))
+        } else {
+          logger.info(`Port ${port} is in use, trying another one...`)
+          httpServer.listen(++port, host)
+        }
+      } else {
+        httpServer.removeListener('error', onError)
+        reject(e)
+      }
+    }
+
+    httpServer.on('error', onError)
+
+    httpServer.listen(port, host, () => {
+      httpServer.removeListener('error', onError)
+      resolve(port)
+    })
+  })
 }
