@@ -86,12 +86,14 @@ cli
       const info = server.config.logger.info
 
       info(
-        colors.cyan(`\n  vite v${require('mini-vite/package.json').version}`) +
-          colors.green(` dev server running at:\n`),
+        colors.cyan(
+          `\n  mini-vite v${require('mini-vite/package.json').version}`
+        ) + colors.green(` dev server running at:\n`),
         {
           clear: !server.config.logger.hasWarned
         }
       )
+      server.printUrls()
     } catch (e) {
       createLogger(options.logLevel).error(
         colors.red(`error when starting dev server:\n${e.stack}`),

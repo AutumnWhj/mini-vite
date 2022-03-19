@@ -53,6 +53,7 @@ export type ResolvedConfig = {
   configFileDependencies: string[]
   server: ResolvedServerOptions
   logger: Logger
+  base: string
 }
 
 export async function resolveConfig(
@@ -100,7 +101,8 @@ export async function resolveConfig(
     inlineConfig,
     server,
     configFileDependencies,
-    logger
+    logger,
+    base: '/'
   }
 }
 

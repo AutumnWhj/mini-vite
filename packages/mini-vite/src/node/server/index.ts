@@ -7,6 +7,7 @@ import type { InlineConfig, ResolvedConfig } from '../config'
 import { resolveConfig } from '../config'
 import { resolveHttpServer, httpServerStart } from '../http'
 import { resolveHostname } from '../utils'
+import { printCommonServerUrls } from '../logger'
 export interface ServerOptions extends CommonServerOptions {
   /**
    * Force dep pre-optimization regardless of whether deps have changed.
@@ -81,9 +82,14 @@ export interface FileSystemServeOptions {
 }
 
 export interface ViteDevServer {
+  base?: string
   config: ResolvedConfig
   httpServer: http.Server | null
   listen(port?: number, isRestart?: boolean): Promise<ViteDevServer>
+  /**
+   * Print server urls
+   */
+  printUrls(): void
 }
 
 export async function createServer(
@@ -110,6 +116,13 @@ export async function createServer(
     httpServer,
     listen(port?: number, isRestart?: boolean) {
       return startServer(server, port, isRestart)
+    },
+    printUrls() {
+      if (httpServer) {
+        printCommonServerUrls(httpServer, config.server, config)
+      } else {
+        throw new Error('cannot print server URLs in middleware mode.')
+      }
     }
   }
   return server
