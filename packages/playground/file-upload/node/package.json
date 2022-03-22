@@ -1,0 +1,13 @@
+{
+  "name": "upload-node",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "serve": "nodemon index.js"
+  },
+  "devDependencies": {
+    "fs-extra": "^10.0.1",
+    "multiparty": "^4.2.3",
+    "nodemon": "^2.0.15"
+  }
+}

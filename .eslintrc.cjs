@@ -105,6 +105,12 @@ module.exports = defineConfig({
       }
     },
     {
+      files: ['packages/playground/file-upload/client/**'],
+      rules: {
+        'node/no-missing-import': 'off'
+      }
+    },
+    {
       files: ['packages/mini-vite/types/**'],
       rules: {
         'node/no-extraneous-import': 'off'
