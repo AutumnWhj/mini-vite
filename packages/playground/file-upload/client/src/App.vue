@@ -4,6 +4,8 @@
     <div>
       <input type="file" @change="handleFileChange" />
       <el-button @click="handleUpload">上传</el-button>
+      <el-button @click="handlePause">暂停</el-button>
+      <el-button @click="handleResume">恢复</el-button>
       <div v-if="filename">
         <h2>计算hash总进度：</h2>
         <div>
@@ -30,7 +32,7 @@
 <script>
 import { request, createFileChunk, createProgressHandler } from './utils'
 // 切片大小
-const SIZE = 5 * 1024 * 1024
+const SIZE = 1 * 1024 * 1024
 export default {
   name: 'App',
   data() {
@@ -41,26 +43,15 @@ export default {
         worker: null
       },
       data: [],
-      hashPercentage: 0
+      requestList: [],
+      hashPercentage: 0,
+      fakeUploadPercentage: 0
     }
   },
   computed: {
     filename({ container }) {
       const { file } = container || {}
       return file?.name || ''
-    },
-    fileData({ data, container }) {
-      const { file } = container || {}
-      return data.map(({ chunk, hash, fileHash }) => {
-        const formData = new FormData()
-        formData.append('chunk', chunk)
-        formData.append('hash', hash)
-        formData.append('filename', file.name)
-        formData.append('fileHash', fileHash)
-        return {
-          formData
-        }
-      })
     },
     uploadPercentage({ data, container }) {
       if (!container.file || !data.length) return 0
@@ -70,11 +61,29 @@ export default {
       return parseInt((loaded / container.file.size).toFixed(2))
     }
   },
+  watch: {
+    uploadPercentage(now) {
+      if (now > this.fakeUploadPercentage) {
+        this.fakeUploadPercentage = now
+      }
+    }
+  },
   methods: {
     handleFileChange(e) {
       console.log('handleFileChange', e)
       const [file] = e.target.files
       this.container.file = file
+    },
+    handlePause() {
+      this.requestList.forEach((xhr) => xhr?.abort())
+      this.requestList = []
+    },
+    async handleResume() {
+      const { uploadedList } = await this.verifyUpload(
+        this.container.file.name,
+        this.container.hash
+      )
+      await this.uploadChunks(uploadedList)
     },
     async handleUpload() {
       console.log('handleUpload: ')
@@ -83,7 +92,7 @@ export default {
       const fileChunkList = createFileChunk(this.container.file, size)
       this.container.hash = await this.calculateHash(fileChunkList)
 
-      const { shouldUpload, uploadedList } = await this.verifyUpload(
+      const { shouldUpload, uploadedList = [] } = await this.verifyUpload(
         this.container.file.name,
         this.container.hash
       )
@@ -97,24 +106,38 @@ export default {
           fileHash: this.container.hash,
           chunk: file,
           hash: `${this.container.hash}-${index}`,
-          percentage: 0,
+          percentage: uploadedList.includes(index) ? 100 : 0,
           size: file.size
         }
       })
-      // console.log('fileChunkList: ', fileChunkList)
-      await this.uploadChunks()
+      await this.uploadChunks(uploadedList)
     },
-    async uploadChunks() {
-      const requestList = this.fileData.map((item, index) => {
-        const { formData } = item || {}
-        request({
-          url: 'http://localhost:4000',
-          data: formData,
-          onProgress: createProgressHandler(this.data[index])
+    // 上传切片，同时过滤已上传的切片
+    async uploadChunks(uploadedList = []) {
+      const requestList = this.data
+        .filter(({ hash }) => !uploadedList.includes(hash))
+        .map(({ chunk, hash, index }) => {
+          const formData = new FormData()
+          formData.append('chunk', chunk)
+          formData.append('hash', hash)
+          formData.append('filename', this.container.file.name)
+          formData.append('fileHash', this.container.hash)
+          return { formData, index }
         })
-      })
+        .map(async ({ formData, index }) =>
+          request({
+            url: 'http://localhost:4000',
+            data: formData,
+            onProgress: createProgressHandler(this.data[index]),
+            requestList: this.requestList
+          })
+        )
       await Promise.all(requestList)
-      await this.mergeRequest()
+      // 之前上传的切片数量 + 本次上传的切片数量 = 所有切片数量时
+      // 合并切片
+      if (uploadedList.length + requestList.length === this.data.length) {
+        await this.mergeRequest()
+      }
     },
     async mergeRequest() {
       const { file, hash } = this.container || {}

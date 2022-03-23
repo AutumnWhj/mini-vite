@@ -5,7 +5,8 @@ export function request({
   method = 'post',
   data,
   headers = {},
-  onProgress = (e) => e
+  onProgress = (e) => e,
+  requestList = []
 }) {
   return new Promise((resolve) => {
     const xhr = new XMLHttpRequest()
@@ -19,10 +20,15 @@ export function request({
     xhr.send(data)
     xhr.onload = (e) => {
       console.log('onload--e: ', e)
+      if (requestList.length > 0) {
+        const xhrIndex = requestList.findIndex((item) => item === xhr)
+        requestList.splice(xhrIndex, 1)
+      }
       resolve({
         data: e.target.response
       })
     }
+    requestList.push(xhr)
   })
 }
 export function createProgressHandler(item) {

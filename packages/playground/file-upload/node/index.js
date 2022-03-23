@@ -32,10 +32,10 @@ server.on('request', async (req, res) => {
       `${fileHash}${extractExt(filename)}`
     )
     // 文件存在直接返回
-    // if (fse.existsSync(filePath)) {
-    //   res.end('file exist')
-    //   return
-    // }
+    if (fse.existsSync(filePath)) {
+      res.end('file exist')
+      return
+    }
     // 文件夹不存在则新建
     if (!fse.existsSync(chunkDir)) {
       await fse.mkdirs(chunkDir)
@@ -83,11 +83,13 @@ function resolvePost(req) {
 function pipeStream(path, writeStream) {
   return new Promise((resolve) => {
     const readStream = fse.createReadStream(path)
+    readStream.on('open', () => {
+      readStream.pipe(writeStream)
+    })
     readStream.on('end', () => {
       fse.unlinkSync(path)
       resolve()
     })
-    readStream.pipe(writeStream)
   })
 }
 
@@ -103,7 +105,8 @@ async function mergeFileChunk({ filePath, fileHash, size }) {
         path.resolve(chunkDir, chunkPath),
         // 指定位置创建可写流
         fse.createWriteStream(filePath, {
-          start: (index + 1) * size
+          start: index * size,
+          end: (index + 1) * size
         })
       )
     )
