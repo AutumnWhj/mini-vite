@@ -32,10 +32,10 @@ server.on('request', async (req, res) => {
       `${fileHash}${extractExt(filename)}`
     )
     // 文件存在直接返回
-    if (fse.existsSync(filePath)) {
-      res.end('file exist')
-      return
-    }
+    // if (fse.existsSync(filePath)) {
+    //   res.end('file exist')
+    //   return
+    // }
     // 文件夹不存在则新建
     if (!fse.existsSync(chunkDir)) {
       await fse.mkdirs(chunkDir)
@@ -61,6 +61,9 @@ server.on('request', async (req, res) => {
         message: 'file merged success'
       })
     )
+  }
+  if (req.url === '/verify') {
+    handleVerifyUpload(req, res)
   }
 })
 
@@ -107,5 +110,30 @@ async function mergeFileChunk({ filePath, fileHash, size }) {
   )
   fse.rmdirSync(chunkDir)
 }
-
+async function handleVerifyUpload(req, res) {
+  const data = await resolvePost(req)
+  const { fileHash, filename } = data
+  const ext = extractExt(filename)
+  const filePath = path.resolve(UPLOAD_DIR, `${fileHash}${ext}`)
+  if (fse.existsSync(filePath)) {
+    res.end(
+      JSON.stringify({
+        shouldUpload: false
+      })
+    )
+  } else {
+    res.end(
+      JSON.stringify({
+        shouldUpload: true,
+        uploadedList: await createUploadedList(fileHash)
+      })
+    )
+  }
+}
+// 返回已经上传切片名
+async function createUploadedList(fileHash) {
+  fse.existsSync(path.resolve(UPLOAD_DIR, fileHash))
+    ? await fse.readdir(path.resolve(UPLOAD_DIR, fileHash))
+    : []
+}
 server.listen('4000', () => {})

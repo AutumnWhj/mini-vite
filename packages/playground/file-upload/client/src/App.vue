@@ -82,6 +82,16 @@ export default {
       const size = SIZE
       const fileChunkList = createFileChunk(this.container.file, size)
       this.container.hash = await this.calculateHash(fileChunkList)
+
+      const { shouldUpload, uploadedList } = await this.verifyUpload(
+        this.container.file.name,
+        this.container.hash
+      )
+
+      if (!shouldUpload) {
+        this.$message.success('秒传：上传成功')
+        return
+      }
       this.data = fileChunkList.map(({ file }, index) => {
         return {
           fileHash: this.container.hash,
@@ -135,6 +145,21 @@ export default {
           }
         }
       })
+    },
+    // 根据 hash 验证文件是否曾经已经被上传过
+    // 没有才进行上传
+    async verifyUpload(filename, fileHash) {
+      const { data } = await request({
+        url: 'http://localhost:4000/verify',
+        headers: {
+          'content-type': 'application/json'
+        },
+        data: JSON.stringify({
+          filename,
+          fileHash
+        })
+      })
+      return JSON.parse(data)
     }
   }
 }
