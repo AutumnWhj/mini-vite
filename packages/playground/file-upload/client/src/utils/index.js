@@ -5,10 +5,12 @@ export function request({
   method = 'post',
   data,
   headers = {},
-  requestList
+  onProgress = (e) => e
 }) {
   return new Promise((resolve) => {
     const xhr = new XMLHttpRequest()
+
+    xhr.addEventListener('progress', onProgress)
     xhr.open(method, url)
 
     Object.keys(headers).forEach((key) => {
@@ -22,6 +24,11 @@ export function request({
       })
     }
   })
+}
+export function createProgressHandler(item) {
+  return (e) => {
+    item.percentage = parseInt(String((e.loaded / e.total) * 100))
+  }
 }
 
 export function createFileChunk(file, size) {

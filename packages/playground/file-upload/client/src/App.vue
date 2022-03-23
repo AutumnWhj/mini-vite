@@ -4,11 +4,31 @@
     <div>
       <input type="file" @change="handleFileChange" />
       <el-button @click="handleUpload">上传</el-button>
+      <div v-if="filename">
+        <h2>计算hash总进度：</h2>
+        <div>
+          <span>{{ filename }}</span>
+          <el-progress :percentage="hashPercentage"></el-progress>
+        </div>
+        <h2>上传总进度：</h2>
+        <div>
+          <span>{{ filename }}</span>
+          <el-progress :percentage="uploadPercentage"></el-progress>
+        </div>
+        <div v-for="item in data" :key="item.hash">
+          <h2>切片上传进度：</h2>
+          <div>
+            <span>{{ item.hash }}：</span>
+            <span>大小： {{ parseInt(item.size / 1024).toFixed(2) }} KB</span>
+            <el-progress :percentage="item.percentage"></el-progress>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 <script>
-import { request, createFileChunk } from './utils'
+import { request, createFileChunk, createProgressHandler } from './utils'
 // 切片大小
 const SIZE = 5 * 1024 * 1024
 export default {
@@ -16,23 +36,38 @@ export default {
   data() {
     return {
       container: {
-        file: null
+        file: null,
+        hash: '',
+        worker: null
       },
-      data: []
+      data: [],
+      hashPercentage: 0
     }
   },
   computed: {
+    filename({ container }) {
+      const { file } = container || {}
+      return file?.name || ''
+    },
     fileData({ data, container }) {
       const { file } = container || {}
-      return data.map(({ chunk, hash }) => {
+      return data.map(({ chunk, hash, fileHash }) => {
         const formData = new FormData()
         formData.append('chunk', chunk)
         formData.append('hash', hash)
         formData.append('filename', file.name)
+        formData.append('fileHash', fileHash)
         return {
           formData
         }
       })
+    },
+    uploadPercentage({ data, container }) {
+      if (!container.file || !data.length) return 0
+      const loaded = data
+        .map((item) => item.size * item.percentage)
+        .reduce((acc, cur) => acc + cur)
+      return parseInt((loaded / container.file.size).toFixed(2))
     }
   },
   methods: {
@@ -46,33 +81,58 @@ export default {
       if (!this.container.file) return
       const size = SIZE
       const fileChunkList = createFileChunk(this.container.file, size)
+      this.container.hash = await this.calculateHash(fileChunkList)
       this.data = fileChunkList.map(({ file }, index) => {
         return {
+          fileHash: this.container.hash,
           chunk: file,
-          hash: `${this.container.file.name}-${index}`
+          hash: `${this.container.hash}-${index}`,
+          percentage: 0,
+          size: file.size
         }
       })
       // console.log('fileChunkList: ', fileChunkList)
       await this.uploadChunks()
     },
     async uploadChunks() {
-      const requestList = this.fileData.map(({ formData }) => {
+      const requestList = this.fileData.map((item, index) => {
+        const { formData } = item || {}
         request({
           url: 'http://localhost:4000',
-          data: formData
+          data: formData,
+          onProgress: createProgressHandler(this.data[index])
         })
       })
       await Promise.all(requestList)
       await this.mergeRequest()
     },
     async mergeRequest() {
-      const { file } = this.container || {}
-      const { name: filename } = file || {}
+      const { file, hash } = this.container || {}
       await request({
         url: 'http://localhost:4000/merge',
-        data: JSON.stringify({ filename, size: SIZE }),
+        data: JSON.stringify({
+          fileHash: hash,
+          filename: file.name,
+          size: SIZE
+        }),
         headers: {
           'content-type': 'application/json'
+        }
+      })
+    },
+    calculateHash(fileChunkList) {
+      return new Promise((resolve) => {
+        if (window.Worker) {
+          this.container.worker = new Worker('/hash.js')
+          this.container.worker.postMessage({ fileChunkList })
+          this.container.worker.onmessage = (e) => {
+            console.log('this.container.worker: ', e)
+            const { percentage, hash } = e.data
+            this.hashPercentage = percentage
+            if (hash) {
+              resolve(hash)
+            }
+          }
         }
       })
     }

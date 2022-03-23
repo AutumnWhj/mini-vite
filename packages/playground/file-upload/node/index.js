@@ -5,7 +5,9 @@ const fse = require('fs-extra')
 const server = http.createServer()
 // 大文件存储目录
 const UPLOAD_DIR = path.resolve(__dirname, '.', 'target')
-
+// 提取后缀名
+const extractExt = (filename) =>
+  filename.slice(filename.lastIndexOf('.'), filename.length)
 server.on('request', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Headers', '*')
@@ -23,20 +25,23 @@ server.on('request', async (req, res) => {
     const [chunk] = files.chunk
     const [hash] = fields.hash
     const [filename] = fields.filename
-    const chunkDir = path.resolve(UPLOAD_DIR)
-    const filePath = `${chunkDir}/${hash}`
+    const [fileHash] = fields.fileHash
+    const chunkDir = path.resolve(UPLOAD_DIR, fileHash)
+    const filePath = path.resolve(
+      UPLOAD_DIR,
+      `${fileHash}${extractExt(filename)}`
+    )
     // 文件存在直接返回
     if (fse.existsSync(filePath)) {
       res.end('file exist')
       return
     }
     // 文件夹不存在则新建
-
     if (!fse.existsSync(chunkDir)) {
       await fse.mkdirs(chunkDir)
     }
     // 写入
-    await fse.move(chunk.path, filePath)
+    await fse.move(chunk.path, path.resolve(chunkDir, hash))
     res.end('received file chunk')
   })
 
@@ -44,10 +49,11 @@ server.on('request', async (req, res) => {
   if (req.url === '/merge') {
     // 解析传入的参数
     const data = await resolvePost(req)
-    const { filename, size } = data || {}
-    const filePath = path.resolve(UPLOAD_DIR, `${filename}`)
+    const { fileHash, filename, size } = data || {}
+    const ext = extractExt(filename)
+    const filePath = path.resolve(UPLOAD_DIR, `${fileHash}${ext}`)
     // 合并
-    await mergeFileChunk({ filePath, filename, size })
+    await mergeFileChunk({ filePath, fileHash, size })
     // 合并成功返回 成功消息
     res.end(
       JSON.stringify({
@@ -74,18 +80,16 @@ function resolvePost(req) {
 function pipeStream(path, writeStream) {
   return new Promise((resolve) => {
     const readStream = fse.createReadStream(path)
-    readStream.on('open', function () {
-      readStream.pipe(writeStream)
-    })
     readStream.on('end', () => {
       fse.unlinkSync(path)
       resolve()
     })
+    readStream.pipe(writeStream)
   })
 }
 
-async function mergeFileChunk({ filePath, filename, size }) {
-  const chunkDir = path.resolve(UPLOAD_DIR)
+async function mergeFileChunk({ filePath, fileHash, size }) {
+  const chunkDir = path.resolve(UPLOAD_DIR, fileHash)
   const chunkPaths = await fse.readdir(chunkDir)
   // 根据切片下标排序，确保合并正确
   chunkPaths.sort((a, b) => a.split('-')[1] - b.split('-')[1])
@@ -101,6 +105,7 @@ async function mergeFileChunk({ filePath, filename, size }) {
       )
     )
   )
+  fse.rmdirSync(chunkDir)
 }
 
 server.listen('4000', () => {})
